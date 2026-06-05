@@ -317,7 +317,7 @@ wheels = [
 
 [[package]]
 name = "thonny-html-highlight"
-version = "0.1.0"
+version = "0.1.1b1"
 source = { editable = "." }
 dependencies = [
     { name = "thonny" },
