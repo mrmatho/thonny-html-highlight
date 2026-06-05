@@ -1,8 +1,16 @@
 """Applies HTML syntax highlighting to a Thonny editor text widget.
 
 The :class:`HtmlHighlighter` owns all interaction with the tkinter Text
-widget.  It reads tokens from :mod:`.tokenizer` and applies named tags so
-that Thonny's theme system can override colours in the future.
+widget.  It reads tokens from :mod:`.tokenizer` and applies named tags.
+
+Colours are resolved in priority order:
+
+1. Thonny's active syntax theme, via ``get_workbench().get_syntax_options_for_tag()``.
+   HTML token types are mapped to semantically equivalent Python token names so
+   that any Thonny theme (light or dark) produces readable colours automatically.
+2. Hard-coded fallback colours selected for readability on both light and dark
+   backgrounds.  The appropriate set is chosen by measuring the luminance of the
+   text widget's background colour.
 """
 from __future__ import annotations
 
@@ -16,21 +24,62 @@ if TYPE_CHECKING:
 
 
 # ---------------------------------------------------------------------------
-# Tag configuration
+# Tag configuration helpers
 # ---------------------------------------------------------------------------
 
-# Default colours for each token category.  These are intentionally chosen
-# to complement Thonny's built-in light theme; a future version will read
-# values from Thonny's syntax-theme API so that dark themes work correctly.
-_TAG_COLORS: dict[str, dict] = {
-    "html_comment":   {"foreground": "#808080"},
-    "html_doctype":   {"foreground": "#999999"},
-    "html_tag_name":  {"foreground": "#000080"},
-    "html_attr_name": {"foreground": "#912B6C"},
-    "html_attr_value":{"foreground": "#007A00"},
-    "html_entity":    {"foreground": "#007070"},
-    "html_bracket":   {"foreground": "#606060"},
+# Maps each HTML tkinter tag to the Thonny Python-syntax tag whose colour
+# is semantically appropriate.  Tags with no natural mapping (html_bracket)
+# are omitted and handled via the fallback tables.
+_THONNY_TAG_MAP: dict[str, str] = {
+    "html_comment":    "comment",
+    "html_doctype":    "comment",
+    "html_tag_name":   "keyword",
+    "html_attr_name":  "builtin",
+    "html_attr_value": "string",
+    "html_entity":     "string",
 }
+
+# Fallback palettes used when Thonny's theme API is unavailable.
+_LIGHT_FALLBACKS: dict[str, str] = {
+    "html_comment":    "#6A9955",   # muted green
+    "html_doctype":    "#808080",   # grey
+    "html_tag_name":   "#0000CC",   # dark blue
+    "html_attr_name":  "#912B6C",   # magenta/purple
+    "html_attr_value": "#007A00",   # dark green
+    "html_entity":     "#007070",   # teal
+    "html_bracket":    "#606060",   # dark grey
+}
+
+_DARK_FALLBACKS: dict[str, str] = {
+    "html_comment":    "#6A9955",   # same green (readable on dark)
+    "html_doctype":    "#888888",   # grey
+    "html_tag_name":   "#569CD6",   # light blue
+    "html_attr_name":  "#9CDCFE",   # pale blue
+    "html_attr_value": "#CE9178",   # orange/salmon
+    "html_entity":     "#4EC9B0",   # teal
+    "html_bracket":    "#AAAAAA",   # light grey
+}
+
+
+def _get_theme_color(thonny_tag: str) -> str | None:
+    """Return the foreground colour for a Thonny syntax tag, or ``None``."""
+    try:
+        from thonny import get_workbench  # noqa: PLC0415
+        opts = get_workbench().get_syntax_options_for_tag(thonny_tag)
+        return opts.get("foreground") if opts else None
+    except Exception:
+        return None
+
+
+def _background_is_dark(text: tk.Text) -> bool:
+    """Return ``True`` if *text*'s background colour has low luminance."""
+    try:
+        bg = text.cget("background")
+        r, g, b = text.winfo_rgb(bg)
+        # winfo_rgb returns 16-bit values (0–65535); threshold at 50 %
+        return (0.299 * r + 0.587 * g + 0.114 * b) < 32768
+    except Exception:
+        return False
 
 # Map from tokenizer token type → tkinter tag name.
 _TOKEN_TO_TAG: dict[str, str] = {
@@ -73,21 +122,27 @@ class HtmlHighlighter:
     # ------------------------------------------------------------------
 
     def configure_tags(self) -> None:
-        """Configure tkinter tag appearance.
+        """Configure tkinter tag colours from Thonny's active theme.
 
         Called once on initialisation and again whenever the Thonny
         appearance changes (``<<UpdateAppearance>>`` event).
 
-        .. todo::
-            Read colours from Thonny's syntax-theme API so that dark
-            themes are respected automatically.
+        Colours are read from Thonny's syntax-theme API where possible so
+        that both light and dark themes produce readable results.  When the
+        API is unavailable a built-in palette is selected based on the
+        widget's background luminance.
         """
-        for tag, opts in _TAG_COLORS.items():
-            self._text.tag_configure(tag, **opts)
+        fallbacks = _DARK_FALLBACKS if _background_is_dark(self._text) else _LIGHT_FALLBACKS
 
-        # HTML tags must be raised above the default text tag so they
-        # are visible.  They sit below the selection tag so selections
-        # still look normal.
+        for tag in ALL_HTML_TAGS:
+            thonny_tag = _THONNY_TAG_MAP.get(tag)
+            color = _get_theme_color(thonny_tag) if thonny_tag else None
+            if not color:
+                color = fallbacks[tag]
+            self._text.tag_configure(tag, foreground=color)
+
+        # HTML tags must be raised above the default text tag so they are
+        # visible, but below the selection tag so selections look normal.
         for tag in ALL_HTML_TAGS:
             try:
                 self._text.tag_raise(tag)
