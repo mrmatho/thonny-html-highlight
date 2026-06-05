@@ -62,10 +62,10 @@ Open any `.html` or `.htm` file in Thonny — highlighting is applied automatica
 
 ```bash
 # Run tests
-uv run pytest
+uv run --group test pytest
 
 # Run tests with verbose output
-uv run pytest -v
+uv run --group test pytest -v
 ```
 
 ## Licence

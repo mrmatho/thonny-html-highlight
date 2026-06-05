@@ -16,4 +16,4 @@ jobs:
         with:
           enable-cache: true
 
-      - run: uv run pytest -v
+      - run: uv run --group test pytest -v
