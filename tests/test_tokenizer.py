@@ -7,7 +7,10 @@ import pytest
 from thonnycontrib.html_highlight.tokenizer import (
     Token,
     offsets_to_tkindices,
+    tokenize_css,
+    tokenize_document,
     tokenize_html,
+    tokenize_javascript,
 )
 
 
@@ -397,3 +400,73 @@ class TestEdgeCases:
         assert "alt" in attr_names
         brackets = tokens_of_type(tokens, "bracket")
         assert text_for(source, brackets[-1]) == "/>"
+
+
+# ---------------------------------------------------------------------------
+# Embedded CSS / JavaScript
+# ---------------------------------------------------------------------------
+
+
+class TestEmbeddedLanguages:
+    def test_style_block_produces_css_tokens(self):
+        source = "<style>body, .card { color: red; }</style>"
+        tokens = tokenize_html(source)
+
+        assert any(t.type == "css_selector" and text_for(source, t) == "body" for t in tokens)
+        assert any(t.type == "css_selector" and text_for(source, t) == ".card" for t in tokens)
+        assert any(t.type == "css_property" and text_for(source, t) == "color" for t in tokens)
+        assert any(t.type == "css_value" and text_for(source, t) == "red" for t in tokens)
+
+    def test_script_block_produces_javascript_tokens(self):
+        source = '<script>const count = 42; console.log("hi");</script>'
+        tokens = tokenize_html(source)
+
+        assert any(t.type == "js_keyword" and text_for(source, t) == "const" for t in tokens)
+        assert any(t.type == "js_number" and text_for(source, t) == "42" for t in tokens)
+        assert any(t.type == "js_builtin" and text_for(source, t) == "console" for t in tokens)
+        assert any(t.type == "js_string" and text_for(source, t) == '"hi"' for t in tokens)
+
+    def test_unclosed_style_block_tokenizes_to_end(self):
+        source = "<style>body { color: red; }"
+        tokens = tokenize_html(source)
+
+        assert any(t.type == "css_property" and text_for(source, t) == "color" for t in tokens)
+        assert any(t.type == "css_value" and text_for(source, t) == "red" for t in tokens)
+
+
+# ---------------------------------------------------------------------------
+# Standalone CSS / JavaScript
+# ---------------------------------------------------------------------------
+
+
+class TestStandaloneCss:
+    def test_css_comment_selector_property_and_value(self):
+        source = "/* theme */\nbody { color: rgb(1, 2, 3); }"
+        tokens = tokenize_css(source)
+
+        assert any(t.type == "css_comment" and text_for(source, t) == "/* theme */" for t in tokens)
+        assert any(t.type == "css_selector" and text_for(source, t) == "body" for t in tokens)
+        assert any(t.type == "css_property" and text_for(source, t) == "color" for t in tokens)
+        assert any(t.type == "css_value" and text_for(source, t) == "rgb(1, 2, 3)" for t in tokens)
+
+    def test_tokenize_document_dispatches_css(self):
+        source = "main { margin: 0; }"
+        tokens = tokenize_document(source, "css")
+        assert any(t.type == "css_property" and text_for(source, t) == "margin" for t in tokens)
+
+
+class TestStandaloneJavascript:
+    def test_javascript_comment_keyword_builtin_string_and_number(self):
+        source = '// note\nconst answer = 42;\nconsole.log("ok");'
+        tokens = tokenize_javascript(source)
+
+        assert any(t.type == "js_comment" and text_for(source, t) == "// note" for t in tokens)
+        assert any(t.type == "js_keyword" and text_for(source, t) == "const" for t in tokens)
+        assert any(t.type == "js_number" and text_for(source, t) == "42" for t in tokens)
+        assert any(t.type == "js_builtin" and text_for(source, t) == "console" for t in tokens)
+        assert any(t.type == "js_string" and text_for(source, t) == '"ok"' for t in tokens)
+
+    def test_tokenize_document_dispatches_javascript(self):
+        source = "let total = 3.5;"
+        tokens = tokenize_document(source, "javascript")
+        assert any(t.type == "js_keyword" and text_for(source, t) == "let" for t in tokens)

@@ -1,8 +1,8 @@
 # thonny-html-highlight
 
-Syntax highlighting for HTML files in the [Thonny](https://thonny.org) IDE.
+Syntax highlighting for HTML, CSS, and JavaScript files in the [Thonny](https://thonny.org) IDE.
 
-By default Thonny treats `.html` and `.htm` files as plain text. This plugin adds colour highlighting for:
+By default Thonny treats `.html`, `.htm`, `.css`, and `.js` files as plain text. This plugin adds colour highlighting for:
 
 - Tag names (`div`, `span`, `a`, …)
 - Attribute names (`class`, `href`, `data-value`, …)
@@ -11,6 +11,8 @@ By default Thonny treats `.html` and `.htm` files as plain text. This plugin add
 - DOCTYPE declarations (`<!DOCTYPE html>`)
 - Entity references (`&amp;`, `&#169;`, `&#xA9;`, …)
 - Angle-bracket punctuation
+- CSS selectors, properties, values, and comments
+- JavaScript keywords, builtins, strings, numbers, and comments
 
 ## Requirements
 
@@ -51,11 +53,10 @@ Restart Thonny after installing.
 
 ## Usage
 
-Open any `.html` or `.htm` file in Thonny — highlighting is applied automatically. No configuration is required.
+Open any `.html`, `.htm`, `.css`, or `.js` file in Thonny — highlighting is applied automatically. HTML files also highlight CSS inside `<style>` tags and JavaScript inside `<script>` tags.
 
 ## Known limitations
 
-- Content inside `<script>` and `<style>` tags is treated as HTML, which may produce incorrect highlighting for JavaScript or CSS within those blocks.
 - Colours follow Thonny's default light theme. Integration with custom syntax themes is planned for a future release.
 
 ## Development

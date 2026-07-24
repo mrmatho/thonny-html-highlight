@@ -138,6 +138,34 @@ class TestOnFileOpen:
         editor._code_view.text.after_idle.assert_not_called()
         assert not hasattr(editor._code_view.text, "_html_highlighter")
 
+    def test_highlights_css_editor_on_open(self):
+        editor = _make_editor("/project/site.css", "body { color: red; }")
+        event = types.SimpleNamespace(editor=editor)
+
+        _on_file_open(event)
+
+        text = editor._code_view.text
+        text.after_idle.assert_called_once()
+        cb = text.after_idle.call_args[0][0]
+        cb()
+
+        assert isinstance(text._html_highlighter, HtmlHighlighter)
+        assert text.file_type == "css"
+
+    def test_highlights_javascript_editor_on_open(self):
+        editor = _make_editor("/project/app.js", 'const total = 42; console.log("ok");')
+        event = types.SimpleNamespace(editor=editor)
+
+        _on_file_open(event)
+
+        text = editor._code_view.text
+        text.after_idle.assert_called_once()
+        cb = text.after_idle.call_args[0][0]
+        cb()
+
+        assert isinstance(text._html_highlighter, HtmlHighlighter)
+        assert text.file_type == "javascript"
+
     def test_no_editor_attribute_is_safe(self):
         event = types.SimpleNamespace()  # no .editor attribute
         _on_file_open(event)             # must not raise
@@ -162,6 +190,22 @@ class TestOnTextChange:
         _on_text_change(event)
 
         assert not hasattr(event.widget, "_html_highlighter")
+
+    def test_css_file_gets_highlighter_attached(self):
+        event = _make_text_event("/project/site.css", "body { color: red; }")
+
+        _on_text_change(event)
+
+        assert isinstance(event.widget._html_highlighter, HtmlHighlighter)
+        assert event.widget.file_type == "css"
+
+    def test_javascript_file_gets_highlighter_attached(self):
+        event = _make_text_event("/project/app.js", 'const total = 42; console.log("ok");')
+
+        _on_text_change(event)
+
+        assert isinstance(event.widget._html_highlighter, HtmlHighlighter)
+        assert event.widget.file_type == "javascript"
 
     def test_sets_file_type_to_html(self):
         event = _make_text_event("/project/index.html", "<p/>")
@@ -198,6 +242,16 @@ class TestOnTextChange:
 
         existing.schedule_update.assert_called_once()
 
+    def test_existing_highlighter_language_updated(self):
+        event = _make_text_event("/project/app.js", "let count = 1;")
+        existing = MagicMock(spec=HtmlHighlighter)
+        event.widget._html_highlighter = existing
+
+        _on_text_change(event)
+
+        assert existing.language == "javascript"
+        existing.schedule_update.assert_called_once()
+
 
 # ---------------------------------------------------------------------------
 # _highlight_editor
@@ -218,6 +272,22 @@ class TestHighlightEditor:
         _highlight_editor(editor)
 
         editor._code_view.text.tag_add.assert_not_called()
+
+    def test_applies_tags_to_css_editor(self):
+        editor = _make_editor("/project/site.css", "body { color: red; }")
+
+        _highlight_editor(editor)
+
+        assert editor._code_view.text.file_type == "css"
+        editor._code_view.text.tag_add.assert_called()
+
+    def test_applies_tags_to_javascript_editor(self):
+        editor = _make_editor("/project/app.js", 'const total = 42; console.log("ok");')
+
+        _highlight_editor(editor)
+
+        assert editor._code_view.text.file_type == "javascript"
+        editor._code_view.text.tag_add.assert_called()
 
     def test_creates_highlighter_on_first_call(self):
         editor = _make_editor("/page.html", "")

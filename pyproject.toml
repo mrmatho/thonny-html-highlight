@@ -1,7 +1,7 @@
 [project]
 name = "thonny-html-highlight"
 version = "0.1.3"
-description = "Thonny plugin: syntax highlighting for HTML files"
+description = "Thonny plugin: syntax highlighting for HTML, CSS, and JavaScript files"
 readme = "README.md"
 authors = [
     { name = "Geoff Matheson", email = "geoff.matheson@education.vic.gov.au" }
