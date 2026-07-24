@@ -1,4 +1,4 @@
-"""Thonny plugin: HTML syntax highlighting for ``.html`` / ``.htm`` files.
+"""Thonny plugin: HTML, CSS, and JavaScript syntax highlighting.
 
 When Thonny loads this plugin it calls :func:`load_plugin`, which binds
 event handlers onto the ``EditorCodeViewText`` widget class and onto the
@@ -39,7 +39,12 @@ import tkinter as tk
 
 from .highlighter import HtmlHighlighter
 
-_HTML_EXTENSIONS = (".html", ".htm")
+_EXTENSION_TO_LANGUAGE = {
+    ".html": "html",
+    ".htm": "html",
+    ".css": "css",
+    ".js": "javascript",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -83,31 +88,58 @@ def _get_filename(editor) -> str | None:
     return None
 
 
+def _get_language_from_path(path: str | None) -> str | None:
+    """Return the supported language for *path*, or ``None``."""
+    if path is None:
+        return None
+
+    lower_path = path.lower()
+    for extension, language in _EXTENSION_TO_LANGUAGE.items():
+        if lower_path.endswith(extension):
+            return language
+
+    return None
+
+
 def _is_html_file(text: tk.Text) -> bool:
     """Return ``True`` when *text* is displaying an HTML file."""
-    path = _get_editor_path(text)
-    return path is not None and path.lower().endswith(_HTML_EXTENSIONS)
+    return _get_language_from_path(_get_editor_path(text)) == "html"
+
+
+def _get_supported_language(text: tk.Text) -> str | None:
+    """Return the supported language shown in *text*, or ``None``."""
+    return _get_language_from_path(_get_editor_path(text))
+
+
+def _ensure_highlighter(text: tk.Text, language: str) -> HtmlHighlighter:
+    """Return a highlighter attached to *text* and configured for *language*."""
+    highlighter = getattr(text, "_html_highlighter", None)
+    if not isinstance(highlighter, HtmlHighlighter):
+        highlighter = HtmlHighlighter(text, language=language)
+        text._html_highlighter = highlighter
+    else:
+        highlighter.language = language
+    return highlighter
 
 
 def _highlight_editor(editor) -> None:
-    """Apply highlighting to *editor* if it contains an HTML file."""
+    """Apply highlighting to *editor* if it contains a supported file."""
     try:
         text = editor._code_view.text
     except AttributeError:
         return
 
-    filename = _get_filename(editor)
-    if filename is None or not filename.lower().endswith(_HTML_EXTENSIONS):
+    language = _get_language_from_path(_get_filename(editor))
+    if language is None:
         return
 
-    if not isinstance(getattr(text, "_html_highlighter", None), HtmlHighlighter):
-        text._html_highlighter = HtmlHighlighter(text)
+    highlighter = _ensure_highlighter(text, language)
 
-    if getattr(text, "file_type", None) != "html":
+    if getattr(text, "file_type", None) != language:
         if hasattr(text, "set_file_type"):
-            text.set_file_type("html")
+            text.set_file_type(language)
 
-    text._html_highlighter.update()
+    highlighter.update()
 
 
 # ---------------------------------------------------------------------------
@@ -129,8 +161,7 @@ def _on_file_open(event: tk.Event) -> None:
     editor = getattr(event, "editor", None)
     if editor is None:
         return
-    filename = _get_filename(editor)
-    if filename is None or not filename.lower().endswith(_HTML_EXTENSIONS):
+    if _get_language_from_path(_get_filename(editor)) is None:
         return
     try:
         editor._code_view.text.after_idle(lambda: _highlight_editor(editor))
@@ -147,19 +178,19 @@ def _on_text_change(event: tk.Event) -> None:
     """
     text = event.widget
 
-    if not _is_html_file(text):
+    language = _get_supported_language(text)
+    if language is None:
         return
 
-    if not isinstance(getattr(text, "_html_highlighter", None), HtmlHighlighter):
-        text._html_highlighter = HtmlHighlighter(text)
+    highlighter = _ensure_highlighter(text, language)
 
     # Re-assert file_type each time: update_file_type() resets it on
     # save/rename, so we correct it on the next keypress.
-    if getattr(text, "file_type", None) != "html":
+    if getattr(text, "file_type", None) != language:
         if hasattr(text, "set_file_type"):
-            text.set_file_type("html")
+            text.set_file_type(language)
 
-    text._html_highlighter.schedule_update()
+    highlighter.schedule_update()
 
 
 def _on_appearance_change(event: tk.Event) -> None:

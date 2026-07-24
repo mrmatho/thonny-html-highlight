@@ -1,4 +1,4 @@
-"""Applies HTML syntax highlighting to a Thonny editor text widget.
+"""Applies HTML, CSS, and JavaScript syntax highlighting to a Thonny editor.
 
 The :class:`HtmlHighlighter` owns all interaction with the tkinter Text
 widget.  It reads tokens from :mod:`.tokenizer` and applies named tags.
@@ -17,7 +17,7 @@ from __future__ import annotations
 import tkinter as tk
 from typing import TYPE_CHECKING, List
 
-from .tokenizer import Token, offsets_to_tkindices, tokenize_html
+from .tokenizer import Token, offsets_to_tkindices, tokenize_document
 
 if TYPE_CHECKING:
     pass  # kept for future type-only imports (e.g. SyntaxText)
@@ -37,6 +37,15 @@ _THONNY_TAG_MAP: dict[str, str] = {
     "html_attr_name":  "builtin",
     "html_attr_value": "string",
     "html_entity":     "string",
+    "css_comment":     "comment",
+    "css_selector":    "keyword",
+    "css_property":    "builtin",
+    "css_value":       "string",
+    "js_comment":      "comment",
+    "js_keyword":      "keyword",
+    "js_builtin":      "builtin",
+    "js_string":       "string",
+    "js_number":       "number",
 }
 
 # Fallback palettes used when Thonny's theme API is unavailable.
@@ -48,6 +57,15 @@ _LIGHT_FALLBACKS: dict[str, str] = {
     "html_attr_value": "#007A00",   # dark green
     "html_entity":     "#007070",   # teal
     "html_bracket":    "#606060",   # dark grey
+    "css_comment":     "#6A9955",
+    "css_selector":    "#7A3E9D",
+    "css_property":    "#912B6C",
+    "css_value":       "#007A00",
+    "js_comment":      "#6A9955",
+    "js_keyword":      "#0000CC",
+    "js_builtin":      "#267F99",
+    "js_string":       "#A31515",
+    "js_number":       "#098658",
 }
 
 _DARK_FALLBACKS: dict[str, str] = {
@@ -58,6 +76,15 @@ _DARK_FALLBACKS: dict[str, str] = {
     "html_attr_value": "#CE9178",   # orange/salmon
     "html_entity":     "#4EC9B0",   # teal
     "html_bracket":    "#AAAAAA",   # light grey
+    "css_comment":     "#6A9955",
+    "css_selector":    "#C586C0",
+    "css_property":    "#9CDCFE",
+    "css_value":       "#CE9178",
+    "js_comment":      "#6A9955",
+    "js_keyword":      "#569CD6",
+    "js_builtin":      "#4FC1FF",
+    "js_string":       "#CE9178",
+    "js_number":       "#B5CEA8",
 }
 
 
@@ -90,9 +117,19 @@ _TOKEN_TO_TAG: dict[str, str] = {
     "attr_value":"html_attr_value",
     "entity":    "html_entity",
     "bracket":   "html_bracket",
+    "css_comment": "css_comment",
+    "css_selector": "css_selector",
+    "css_property": "css_property",
+    "css_value": "css_value",
+    "js_comment": "js_comment",
+    "js_keyword": "js_keyword",
+    "js_builtin": "js_builtin",
+    "js_string": "js_string",
+    "js_number": "js_number",
 }
 
 ALL_HTML_TAGS: List[str] = list(_TOKEN_TO_TAG.values())
+ALL_HIGHLIGHT_TAGS: List[str] = ALL_HTML_TAGS
 
 
 # ---------------------------------------------------------------------------
@@ -112,8 +149,9 @@ class HtmlHighlighter:
     callback, deduplicating rapid successive calls.
     """
 
-    def __init__(self, text: tk.Text) -> None:
+    def __init__(self, text: tk.Text, language: str = "html") -> None:
         self._text = text
+        self.language = language
         self._update_scheduled = False
         self.configure_tags()
 
@@ -181,7 +219,7 @@ class HtmlHighlighter:
         if not content:
             return
 
-        tokens: List[Token] = tokenize_html(content)
+        tokens: List[Token] = tokenize_document(content, self.language)
         if not tokens:
             return
 

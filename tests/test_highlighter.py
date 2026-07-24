@@ -136,6 +136,42 @@ class TestApplyHighlighting:
         added_tags = {c.args[0] for c in mock_text.tag_add.call_args_list}
         assert "html_entity" in added_tags
 
+    def test_embedded_style_produces_css_tags(self, highlighter, mock_text):
+        mock_text.get.return_value = "<style>body { color: red; }</style>"
+        highlighter.update()
+        added_tags = {c.args[0] for c in mock_text.tag_add.call_args_list}
+        assert "css_selector" in added_tags
+        assert "css_property" in added_tags
+        assert "css_value" in added_tags
+
+    def test_embedded_script_produces_javascript_tags(self, highlighter, mock_text):
+        mock_text.get.return_value = '<script>const total = 42; console.log("ok");</script>'
+        highlighter.update()
+        added_tags = {c.args[0] for c in mock_text.tag_add.call_args_list}
+        assert "js_keyword" in added_tags
+        assert "js_number" in added_tags
+        assert "js_builtin" in added_tags
+        assert "js_string" in added_tags
+
+    def test_css_file_produces_css_tags(self, mock_text):
+        highlighter = HtmlHighlighter(mock_text, language="css")
+        mock_text.get.return_value = "body { color: red; }"
+        highlighter.update()
+        added_tags = {c.args[0] for c in mock_text.tag_add.call_args_list}
+        assert "css_selector" in added_tags
+        assert "css_property" in added_tags
+        assert "css_value" in added_tags
+
+    def test_javascript_file_produces_javascript_tags(self, mock_text):
+        highlighter = HtmlHighlighter(mock_text, language="javascript")
+        mock_text.get.return_value = 'const total = 42; console.log("ok");'
+        highlighter.update()
+        added_tags = {c.args[0] for c in mock_text.tag_add.call_args_list}
+        assert "js_keyword" in added_tags
+        assert "js_number" in added_tags
+        assert "js_builtin" in added_tags
+        assert "js_string" in added_tags
+
     def test_tag_add_uses_correct_tkinter_index_format(self, highlighter, mock_text):
         # Simple one-line case: <p> at the start.
         mock_text.get.return_value = "<p>"
@@ -168,6 +204,8 @@ class TestTokenToTagMapping:
         known_types = {
             "comment", "doctype", "entity",
             "bracket", "tag_name", "attr_name", "attr_value",
+            "css_comment", "css_selector", "css_property", "css_value",
+            "js_comment", "js_keyword", "js_builtin", "js_string", "js_number",
         }
         assert known_types == set(_TOKEN_TO_TAG.keys())
 
