@@ -128,8 +128,9 @@ _TOKEN_TO_TAG: dict[str, str] = {
     "js_number": "js_number",
 }
 
-ALL_HTML_TAGS: List[str] = list(_TOKEN_TO_TAG.values())
-ALL_HIGHLIGHT_TAGS: List[str] = ALL_HTML_TAGS
+ALL_HIGHLIGHT_TAGS: List[str] = list(_TOKEN_TO_TAG.values())
+# Deprecated compatibility alias; prefer ALL_HIGHLIGHT_TAGS in new code.
+ALL_HTML_TAGS: List[str] = ALL_HIGHLIGHT_TAGS
 
 
 # ---------------------------------------------------------------------------
@@ -172,7 +173,7 @@ class HtmlHighlighter:
         """
         fallbacks = _DARK_FALLBACKS if _background_is_dark(self._text) else _LIGHT_FALLBACKS
 
-        for tag in ALL_HTML_TAGS:
+        for tag in ALL_HIGHLIGHT_TAGS:
             thonny_tag = _THONNY_TAG_MAP.get(tag)
             color = _get_theme_color(thonny_tag) if thonny_tag else None
             if not color:
@@ -181,7 +182,7 @@ class HtmlHighlighter:
 
         # HTML tags must be raised above the default text tag so they are
         # visible, but below the selection tag so selections look normal.
-        for tag in ALL_HTML_TAGS:
+        for tag in ALL_HIGHLIGHT_TAGS:
             try:
                 self._text.tag_raise(tag)
             except tk.TclError:
@@ -212,7 +213,7 @@ class HtmlHighlighter:
 
     def _apply_highlighting(self) -> None:
         # Remove all existing HTML tags in one pass before adding new ones.
-        for tag in ALL_HTML_TAGS:
+        for tag in ALL_HIGHLIGHT_TAGS:
             self._text.tag_remove(tag, "1.0", "end")
 
         content = self._text.get("1.0", "end-1c")

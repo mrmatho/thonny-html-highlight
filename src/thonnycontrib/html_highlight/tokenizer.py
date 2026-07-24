@@ -160,6 +160,7 @@ def tokenize_html(text: str) -> List[Token]:
         else:
             pos = match.end()
 
+    # Embedded CSS/JS tokens are appended in batches, so normalize ordering once.
     tokens.sort(key=lambda t: (t.start, t.end))
     return tokens
 
@@ -248,6 +249,7 @@ def tokenize_css(text: str, base_offset: int = 0) -> List[Token]:
         if pos < length and text[pos] == ";":
             pos += 1
 
+    # Comments and nested-rule recovery can append tokens out of order.
     tokens.sort(key=lambda t: (t.start, t.end))
     return tokens
 
@@ -306,6 +308,7 @@ def tokenize_javascript(text: str, base_offset: int = 0) -> List[Token]:
 
         pos += 1
 
+    # Keep output order stable even when multiple token classes share offsets.
     tokens.sort(key=lambda t: (t.start, t.end))
     return tokens
 
