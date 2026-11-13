@@ -311,3 +311,24 @@ class TestHighlightEditor:
         editor.get_target_path = MagicMock(return_value="/page.html")
         # no _code_view attribute
         _highlight_editor(editor)  # must not raise
+
+
+class TestRegisterDialogFiletypes:
+    def test_adds_html_entry_once_after_python(self, monkeypatch):
+        from thonnycontrib import html_highlight as hh
+
+        filetypes = [("Python files", ".py"), ("all files", ".*")]
+        fake = types.SimpleNamespace(_dialog_filetypes=filetypes)
+        monkeypatch.setitem(__import__("sys").modules, "thonny.editors", fake)
+        monkeypatch.setitem(
+            __import__("sys").modules, "thonny", types.SimpleNamespace(editors=fake)
+        )
+
+        hh._register_dialog_filetypes()
+        hh._register_dialog_filetypes()
+
+        assert filetypes == [
+            ("Python files", ".py"),
+            ("HTML files", ".html .htm"),
+            ("all files", ".*"),
+        ]

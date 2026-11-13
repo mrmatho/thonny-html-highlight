@@ -46,6 +46,8 @@ _EXTENSION_TO_LANGUAGE = {
     ".js": "javascript",
 }
 
+_HTML_FILETYPE = ("HTML files", ".html .htm")
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -216,6 +218,23 @@ def _on_appearance_change(event: tk.Event) -> None:
         pass
 
 
+def _register_dialog_filetypes() -> None:
+    """Add an "HTML files" entry to Thonny's open/save file dialogs.
+
+    Thonny reads the module-level ``editors._dialog_filetypes`` list each time
+    a dialog opens, so extending it in place is enough.  The entry goes after
+    the Python one so Python remains the default filter.
+    """
+    try:
+        from thonny import editors  # noqa: PLC0415
+
+        filetypes = editors._dialog_filetypes
+        if _HTML_FILETYPE not in filetypes:
+            filetypes.insert(1, _HTML_FILETYPE)
+    except Exception:
+        pass
+
+
 # ---------------------------------------------------------------------------
 # Plugin entry point
 # ---------------------------------------------------------------------------
@@ -226,6 +245,7 @@ def load_plugin() -> None:
     from thonny import get_workbench  # noqa: PLC0415 — deferred to avoid import at test time
 
     wb = get_workbench()
+    _register_dialog_filetypes()
     # "Open"   — Thonny 5.0: fires before content is loaded (we use after_idle).
     # "Opened" — newer Thonny: fires after content is loaded.
     # Binding both is harmless; whichever doesn't exist is silently ignored.
